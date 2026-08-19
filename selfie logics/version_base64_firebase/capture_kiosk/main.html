@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Selfie Kiosk - Base64 Version</title>
+  
+  <!-- Modern Premium Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --panel: #161f30;
+      --accent: #2563eb;
+      --accent-hover: #3b82f6;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+      --danger: #ef4444;
+      --border: rgba(255, 255, 255, 0.08);
+      --font: 'Outfit', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    /* Kiosk Container wrapper */
+    .kiosk-container {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      width: 95%;
+      max-width: 900px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Screen States styling */
+    .screen {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Form Fields */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #fff;
+      font-size: 16px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+      background: rgba(255,255,255,0.05);
+    }
+
+    /* Capture slots styling */
+    .capture-layout {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 24px;
+    }
+
+    .camera-viewport {
+      position: relative;
+      aspect-ratio: 1/1;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .camera-viewport video, .camera-viewport canvas, .camera-viewport img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .slot-cell {
+      background: rgba(255,255,255,0.02);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      aspect-ratio: 1/1;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .slot-cell.active {
+      border-color: var(--accent);
+      background: rgba(37, 99, 235, 0.05);
+    }
+
+    .slot-cell.captured {
+      border-style: solid;
+      border-color: var(--success);
+    }
+
+    .slot-cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .slot-number {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: rgba(0,0,0,0.6);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+      border: none;
+      padding: 16px 28px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Editor State */
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 24px;
+    }
+
+    .canvas-container {
+      position: relative;
+      aspect-ratio: 1/1;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #111;
+      border: 1px solid var(--border);
+    }
+
+    #editorCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .tools-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .tool-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tool-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .color-palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .color-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .color-btn.active {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    /* Sticker Grid */
+    .stickers-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.15);
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .sticker-item {
+      aspect-ratio: 1/1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .sticker-item:hover {
+      transform: scale(1.1);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .sticker-item img {
+      width: 80%;
+      height: 80%;
+      object-fit: contain;
+    }
+
+    /* Success / Upload styling */
+    .success-panel {
+      text-align: center;
+      padding: 40px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .success-icon {
+      font-size: 64px;
+      color: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .status-text {
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+  </style>
+
+  <!-- Firebase SDK CDNs (Standard Firebase 8 compatibility) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+</head>
+<body>
+
+  <div class="kiosk-container">
+    <h1>Selfie Collage Kiosk</h1>
+    
+    <!-- STEP 1: Registration Form + Camera Capture -->
+    <div id="step-capture" class="screen">
+      <div class="form-group">
+        <label for="guestName">Name</label>
+        <input id="guestName" type="text" placeholder="Enter guest name">
+      </div>
+      <div class="form-group">
+        <label for="guestPhone">Mobile Number</label>
+        <input id="guestPhone" type="tel" placeholder="Enter mobile number">
+      </div>
+
+      <div class="capture-layout">
+        <!-- Viewfinder viewport -->
+        <div class="camera-viewport">
+          <video id="videoFeed" autoplay playsinline></video>
+          <img id="capturePreview" class="hidden" alt="Capture Preview">
+        </div>
+
+        <!-- 4 Grid Slots -->
+        <div class="slots-grid">
+          <div class="slot-cell active" data-index="0" id="slot-0">
+            <span class="slot-number">1</span>
+            <div class="slot-placeholder">Slot 1</div>
+          </div>
+          <div class="slot-cell" data-index="1" id="slot-1">
+            <span class="slot-number">2</span>
+            <div class="slot-placeholder">Slot 2</div>
+          </div>
+          <div class="slot-cell" data-index="2" id="slot-2">
+            <span class="slot-number">3</span>
+            <div class="slot-placeholder">Slot 3</div>
+          </div>
+          <div class="slot-cell" data-index="3" id="slot-3">
+            <span class="slot-number">4</span>
+            <div class="slot-placeholder">Slot 4</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div style="display: flex; gap: 12px; justify-content: space-between; margin-top: 10px;">
+        <button class="btn btn-secondary" id="btnRetakeSlot" disabled>Retake Slot</button>
+        <button class="btn" id="btnCapturePhoto">Capture Photo</button>
+        <button class="btn btn-success" id="btnNextStep" disabled>Next: Edit Collage</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Edit Collage (Paint + Stickers) -->
+    <div id="step-edit" class="screen hidden">
+      <div class="editor-layout">
+        
+        <!-- Editable Collage Canvas -->
+        <div class="canvas-container" id="canvasContainer">
+          <canvas id="editorCanvas"></canvas>
+        </div>
+
+        <!-- Editing Tools Panel -->
+        <div class="tools-panel">
+          
+          <!-- Brushes -->
+          <div class="tool-section">
+            <span class="tool-title">Brush Color</span>
+            <div class="color-palette">
+              <button class="color-btn active" style="background: #ffffff;" data-color="#ffffff"></button>
+              <button class="color-btn" style="background: #ff3b30;" data-color="#ff3b30"></button>
+              <button class="color-btn" style="background: #ffcc00;" data-color="#ffcc00"></button>
+              <button class="color-btn" style="background: #4cd964;" data-color="#4cd964"></button>
+              <button class="color-btn" style="background: #5ac8fa;" data-color="#5ac8fa"></button>
+              <button class="color-btn" style="background: #007aff;" data-color="#007aff"></button>
+              <button class="color-btn" style="background: #5856d6;" data-color="#5856d6"></button>
+              <button class="color-btn" style="background: #ff2d55;" data-color="#ff2d55"></button>
+            </div>
+          </div>
+
+          <div class="tool-section">
+            <span class="tool-title">Brush Size</span>
+            <input type="range" id="brushSize" min="4" max="24" value="8" style="width: 100%;">
+          </div>
+
+          <!-- Stickers -->
+          <div class="tool-section">
+            <span class="tool-title">Stickers</span>
+            <div class="stickers-grid">
+              <!-- Emojis as temporary sticker PNG alternatives -->
+              <div class="sticker-item" data-src="https://img.icons8.com/emoji/96/smiling-face.png" data-name="smile">
+                <img src="https://img.icons8.com/emoji/96/smiling-face.png" alt="Smile">
+              </div>
+              <div class="sticker-item" data-src="https://img.icons8.com/emoji/96/sunglasses-emoji.png" data-name="sunglasses">
+                <img src="https://img.icons8.com/emoji/96/sunglasses-emoji.png" alt="Cool">
+              </div>
+              <div class="sticker-item" data-src="https://img.icons8.com/emoji/96/party-popper.png" data-name="party">
+                <img src="https://img.icons8.com/emoji/96/party-popper.png" alt="Party">
+              </div>
+              <div class="sticker-item" data-src="https://img.icons8.com/emoji/96/sparkles-emoji.png" data-name="sparkles">
+                <img src="https://img.icons8.com/emoji/96/sparkles-emoji.png" alt="Sparkles">
+              </div>
+              <div class="sticker-item" data-src="https://img.icons8.com/emoji/96/thumbs-up-emoji.png" data-name="thumbs-up">
+                <img src="https://img.icons8.com/emoji/96/thumbs-up-emoji.png" alt="Like">
+              </div>
+            </div>
+          </div>
+
+          <!-- Draw actions -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="btn btn-secondary" id="btnUndo">Undo Paint</button>
+            <button class="btn btn-danger" id="btnClearPaint">Clear All</button>
+          </div>
+
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: space-between; margin-top: 10px;">
+        <button class="btn btn-secondary" id="btnBackToCapture">Back</button>
+        <button class="btn" id="btnFinishUpload">Flatten &amp; Submit</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Uploading & Success Confirmation -->
+    <div id="step-success" class="screen hidden">
+      <div class="success-panel">
+        <div class="success-icon" id="successIcon">✓</div>
+        <h2 id="successTitle">Photo Uploaded Successfully!</h2>
+        <div class="status-text" id="statusMessage">Processing your selfie collage...</div>
+        <button class="btn" id="btnResetKiosk" style="margin-top: 20px;">Take Another Collage</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Javascript Modules -->
+  <script src="config.js"></script>
+  <script src="Library.js"></script>
+
+  <script>
+    // Initialize Kiosk Orchestrator once DOM has loaded
+    window.addEventListener('load', function() {
+      // 1. Initialize Firebase App
+      firebase.initializeApp(CONFIG.FIREBASE);
+      const db = firebase.firestore();
+
+      // 2. DOM element handles
+      const video = document.getElementById('videoFeed');
+      const previewImg = document.getElementById('capturePreview');
+      const btnCapturePhoto = document.getElementById('btnCapturePhoto');
+      const btnRetakeSlot = document.getElementById('btnRetakeSlot');
+      const btnNextStep = document.getElementById('btnNextStep');
+      const btnBackToCapture = document.getElementById('btnBackToCapture');
+      const btnFinishUpload = document.getElementById('btnFinishUpload');
+      const btnResetKiosk = document.getElementById('btnResetKiosk');
+      
+      const stepCapture = document.getElementById('step-capture');
+      const stepEdit = document.getElementById('step-edit');
+      const stepSuccess = document.getElementById('step-success');
+      
+      const guestName = document.getElementById('guestName');
+      const guestPhone = document.getElementById('guestPhone');
+      const statusMessage = document.getElementById('statusMessage');
+      const successTitle = document.getElementById('successTitle');
+      const successIcon = document.getElementById('successIcon');
+      
+      // Editor elements
+      const editorCanvas = document.getElementById('editorCanvas');
+      const canvasContainer = document.getElementById('canvasContainer');
+      const brushSizeSlider = document.getElementById('brushSize');
+      const colorBtns = document.querySelectorAll('.color-btn');
+      const stickerItems = document.querySelectorAll('.sticker-item');
+      const btnUndo = document.getElementById('btnUndo');
+      const btnClearPaint = document.getElementById('btnClearPaint');
+
+      // 3. State management
+      let stream = null;
+      let captureManager = new CollageCaptureManager();
+      let drawManager = null;
+      let stickerManager = null;
+      let editStartTime = 0;
+
+      // Start Kiosk Camera Feed
+      async function startCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } },
+            audio: false
+          });
+          video.srcObject = stream;
+        } catch (err) {
+          console.error("Camera access failed:", err);
+          alert("Could not access camera viewfinder.");
+        }
+      }
+
+      startCamera();
+
+      // Click Grid Slot selection
+      document.querySelectorAll('.slot-cell').forEach(slot => {
+        slot.addEventListener('click', function() {
+          const idx = parseInt(this.getAttribute('data-index'));
+          
+          // Deselect active slots
+          document.querySelectorAll('.slot-cell').forEach(s => s.classList.remove('active'));
+          
+          this.classList.add('active');
+          captureManager.setActiveSlot(idx);
+
+          // If slot has photo, show preview; else show live stream
+          if (captureManager.photos[idx]) {
+            previewImg.src = captureManager.photos[idx];
+            previewImg.classList.remove('hidden');
+            video.classList.add('hidden');
+            btnRetakeSlot.disabled = false;
+          } else {
+            previewImg.classList.add('hidden');
+            video.classList.remove('hidden');
+            btnRetakeSlot.disabled = true;
+          }
+        });
+      });
+
+      // Capture Single Photo slot
+      btnCapturePhoto.addEventListener('click', function() {
+        if (!stream) return;
+        
+        const size = Math.min(video.videoWidth, video.videoHeight || 720);
+        const sx = (video.videoWidth - size) / 2;
+        const sy = (video.videoHeight - size) / 2;
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 720;
+        tempCanvas.height = 720;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(video, sx, sy, size, size, 0, 0, 720, 720);
+
+        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.90);
+        
+        // Save photo in slot
+        const activeIdx = captureManager.activeSlot;
+        captureManager.captureActiveSlot(dataUrl);
+
+        // Update preview in slot cell
+        const slotCell = document.getElementById(`slot-${activeIdx}`);
+        slotCell.classList.add('captured');
+        
+        // Remove text indicator, append image
+        let slotImg = slotCell.querySelector('img');
+        if (!slotImg) {
+          slotImg = document.createElement('img');
+          slotCell.querySelector('.slot-placeholder').classList.add('hidden');
+          slotCell.appendChild(slotImg);
+        }
+        slotImg.src = dataUrl;
+
+        // Freeze viewfinder preview
+        previewImg.src = dataUrl;
+        previewImg.classList.remove('hidden');
+        video.classList.add('hidden');
+        btnRetakeSlot.disabled = false;
+
+        // Auto move active selection to next slot
+        if (!captureManager.isComplete()) {
+          const nextIdx = (activeIdx + 1) % 4;
+          setTimeout(() => {
+            document.getElementById(`slot-${nextIdx}`).click();
+          }, 400);
+        } else {
+          btnNextStep.disabled = false;
+        }
+      });
+
+      // Retake photo slot
+      btnRetakeSlot.addEventListener('click', function() {
+        const idx = captureManager.activeSlot;
+        captureManager.clearSlot(idx);
+
+        const slotCell = document.getElementById(`slot-${idx}`);
+        slotCell.classList.remove('captured');
+        const img = slotCell.querySelector('img');
+        if (img) img.remove();
+        slotCell.querySelector('.slot-placeholder').classList.remove('hidden');
+
+        previewImg.classList.add('hidden');
+        video.classList.remove('hidden');
+        btnRetakeSlot.disabled = true;
+        btnNextStep.disabled = true;
+      });
+
+      // Proceed to edit step
+      btnNextStep.addEventListener('click', function() {
+        stepCapture.classList.add('hidden');
+        stepEdit.classList.remove('hidden');
+        editStartTime = Date.now();
+
+        // Stop camera tracks to release resource
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
+
+        // Setup the large canvas editing dimensions
+        editorCanvas.width = 720;
+        editorCanvas.height = 720;
+
+        // Initialize Managers
+        drawManager = new CanvasDrawManager(editorCanvas);
+        stickerManager = new KioskStickerManager(canvasContainer, 720, 720);
+
+        // Draw initial collage images onto editor background canvas
+        const ctx = editorCanvas.getContext('2d');
+        const slots = [[0, 0], [360, 0], [0, 360], [360, 360]];
+        
+        // Draw the 4 slot photos as base layer
+        captureManager.photos.forEach((photoData, i) => {
+          const img = new Image();
+          img.src = photoData;
+          img.onload = function() {
+            ctx.drawImage(img, slots[i][0], slots[i][1], 360, 360);
+          };
+        });
+      });
+
+      // Paint Controls
+      colorBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          colorBtns.forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          drawManager.setColor(this.getAttribute('data-color'));
+        });
+      });
+
+      brushSizeSlider.addEventListener('input', function() {
+        drawManager.setBrushSize(parseInt(this.value));
+      });
+
+      btnUndo.addEventListener('click', () => drawManager.undo());
+      btnClearPaint.addEventListener('click', () => {
+        if(confirm("Clear all paint markings?")) drawManager.clear();
+      });
+
+      // Sticker add action
+      stickerItems.forEach(item => {
+        item.addEventListener('click', function() {
+          const src = this.getAttribute('data-src');
+          const name = this.getAttribute('data-name');
+          stickerManager.addSticker(src, name);
+        });
+      });
+
+      // Back to capture view
+      btnBackToCapture.addEventListener('click', function() {
+        stickerManager.clear();
+        stepEdit.classList.add('hidden');
+        stepCapture.classList.remove('hidden');
+        startCamera();
+      });
+
+      // Flatten and submit
+      btnFinishUpload.addEventListener('click', async function() {
+        const nameVal = guestName.value.trim();
+        const phoneVal = guestPhone.value.trim();
+
+        if (!nameVal || !phoneVal) {
+          alert("Please fill in both Name and Phone details.");
+          return;
+        }
+
+        btnFinishUpload.disabled = true;
+        stepEdit.classList.add('hidden');
+        stepSuccess.classList.remove('hidden');
+        successIcon.innerHTML = "⏳";
+        successTitle.innerHTML = "Uploading Collage...";
+        statusMessage.innerHTML = "Creating high-res collage output...";
+
+        try {
+          // 1. Flatten the canvas
+          statusMessage.innerHTML = "Serializing image (Base64)...";
+          
+          // Map loaded elements of photos
+          const photoImgs = [];
+          for (let i = 0; i < 4; i++) {
+            const img = new Image();
+            img.src = captureManager.photos[i];
+            await new Promise(r => img.onload = r);
+            photoImgs.push(img);
+          }
+
+          // Generate flattened image using the helper classes we loaded from Library.js
+          const base64Data = await CollageExporter.flattenAndExport({
+            photoElements: photoImgs,
+            paintCanvas: editorCanvas,
+            stickerObjects: stickerManager.stickers,
+            outputSize: 1080
+          });
+
+          // 2. Upload to ImgBB via Base64
+          statusMessage.innerHTML = "Uploading to CDN server...";
+          const imageURL = await uploadBase64ToImgBB(base64Data);
+
+          // 3. Save to Firestore
+          statusMessage.innerHTML = "Syncing metadata to real-time wall...";
+          const uploadID = 'upload_' + Date.now();
+          const secondsSpentEditing = Math.round((Date.now() - editStartTime) / 1000);
+          const stickersUsed = stickerManager.stickers.map(s => s.name).join(',');
+          
+          await saveToFirestore(db, {
+            uploadID,
+            name: nameVal,
+            phone: phoneVal,
+            imageURL,
+            secondsSpentEditing,
+            stickersUsed,
+            didDoodle: drawManager.history.length > 0
+          });
+
+          // Show Completed confirmation screen
+          successIcon.innerHTML = "✓";
+          successTitle.innerHTML = "Collage Uploaded!";
+          statusMessage.innerHTML = "Your selfie is live on the big display board.";
+          btnResetKiosk.classList.remove('hidden');
+
+        } catch (error) {
+          console.error("Upload failure:", error);
+          successIcon.innerHTML = "✕";
+          successTitle.innerHTML = "Upload Failed";
+          statusMessage.innerHTML = `Error: ${error.message || error}`;
+          btnResetKiosk.classList.remove('hidden');
+        }
+      });
+
+      // Reset Kiosk
+      btnResetKiosk.addEventListener('click', function() {
+        guestName.value = '';
+        guestPhone.value = '';
+        captureManager.reset();
+        
+        // Remove pictures from layout cells
+        document.querySelectorAll('.slot-cell').forEach(slot => {
+          slot.classList.remove('captured');
+          const img = slot.querySelector('img');
+          if (img) img.remove();
+          slot.querySelector('.slot-placeholder').classList.remove('hidden');
+        });
+
+        // Set active to first slot
+        document.getElementById('slot-0').click();
+        
+        stepSuccess.classList.add('hidden');
+        stepCapture.classList.remove('hidden');
+        btnNextStep.disabled = true;
+        startCamera();
+      });
+
+    });
+  </script>
+</body>
+</html>

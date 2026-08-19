@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display Kiosk - Live Wall</title>
+  
+  <!-- Modern Premium Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #030712;
+      --panel: rgba(17, 24, 39, 0.7);
+      --border: rgba(255, 255, 255, 0.05);
+      --font: 'Outfit', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 30px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Diagnostics connection status */
+    #status {
+      font-size: 13px;
+      color: #9ca3af;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    /* Live Photos Wall Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+      width: 100%;
+    }
+
+    .grid-cell {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #111827;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+      animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .cell-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      letter-spacing: 0.2px;
+    }
+
+    /* Grid entry animations */
+    @keyframes zoomIn {
+      from {
+        transform: scale(0.9);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <!-- Firebase SDK CDNs (Standard Firebase 8 compatibility) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+</head>
+<body>
+
+  <header>
+    <h1>Guest Selfie Wall</h1>
+    <div id="status">Connecting...</div>
+  </header>
+
+  <!-- The Grid Container -->
+  <div class="grid" id="photoGrid"></div>
+
+  <!-- Load script dependencies -->
+  <script src="config.js"></script>
+  <script src="Library.js"></script>
+
+  <script>
+    // Initialize Display board
+    window.addEventListener('load', function() {
+      // 1. Initialize Firebase App
+      firebase.initializeApp(CONFIG.FIREBASE);
+      const db = firebase.firestore();
+
+      // 2. Initialize display logic classes
+      const gridEl = document.getElementById('photoGrid');
+      const statusEl = document.getElementById('status');
+      const displayWall = new KioskDisplayWall(gridEl, statusEl);
+
+      // 3. Subscribe to real-time additions
+      displayWall.subscribeToUpdates(db);
+
+      // 4. Live connection health diagnostic indicator
+      db.doc(".info/connected").onSnapshot((snapshot) => {
+        if (snapshot.data()?.connected === false) {
+          statusEl.textContent = "Network Offline - Reconnecting...";
+          statusEl.style.color = "#ef4444";
+        } else {
+          statusEl.style.color = "#9ca3af";
+        }
+      });
+
+    });
+  </script>
+</body>
+</html>
