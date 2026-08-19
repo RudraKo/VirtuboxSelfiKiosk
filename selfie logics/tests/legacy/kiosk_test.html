@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Kiosk Backend Test</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #0f1115;
+			--panel: #171b22;
+			--panel-2: #202633;
+			--text: #e9edf4;
+			--muted: #a8b3c7;
+			--accent: #77a6ff;
+			--good: #51d08a;
+			--warn: #ffd166;
+			--bad: #ff6b6b;
+			--border: rgba(255, 255, 255, 0.1);
+			--shadow: 0 16px 44px rgba(0, 0, 0, 0.35);
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			background:
+				radial-gradient(circle at top left, rgba(119, 166, 255, 0.15), transparent 30%),
+				radial-gradient(circle at top right, rgba(81, 208, 138, 0.10), transparent 24%),
+				linear-gradient(180deg, #0f1115 0%, #0b0d11 100%);
+			color: var(--text);
+			min-height: 100vh;
+		}
+
+		.shell {
+			max-width: 1280px;
+			margin: 0 auto;
+			padding: 24px;
+			display: grid;
+			gap: 18px;
+		}
+
+		.header {
+			display: grid;
+			gap: 10px;
+			padding: 24px;
+			border: 1px solid var(--border);
+			border-radius: 24px;
+			background: rgba(23, 27, 34, 0.82);
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(12px);
+		}
+
+		.header h1 {
+			margin: 0;
+			font-size: clamp(2rem, 4vw, 3.2rem);
+			line-height: 1;
+		}
+
+		.header p {
+			margin: 0;
+			color: var(--muted);
+			max-width: 85ch;
+			line-height: 1.5;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: 380px minmax(0, 1fr);
+			gap: 18px;
+		}
+
+		.card {
+			border: 1px solid var(--border);
+			border-radius: 22px;
+			background: rgba(23, 27, 34, 0.82);
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(12px);
+			padding: 18px;
+		}
+
+		.card h2 {
+			margin: 0 0 14px;
+			font-size: 0.95rem;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--muted);
+		}
+
+		.field {
+			display: grid;
+			gap: 8px;
+			margin-bottom: 12px;
+		}
+
+		label {
+			font-size: 0.9rem;
+			color: var(--muted);
+		}
+
+		input, button, textarea {
+			font: inherit;
+		}
+
+		input, textarea {
+			width: 100%;
+			border-radius: 14px;
+			border: 1px solid var(--border);
+			background: var(--panel-2);
+			color: var(--text);
+			padding: 12px 14px;
+		}
+
+		textarea {
+			min-height: 150px;
+			resize: vertical;
+		}
+
+		.row {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		button {
+			border: 0;
+			border-radius: 999px;
+			padding: 11px 16px;
+			color: #08111e;
+			background: linear-gradient(135deg, var(--accent), #9ec0ff);
+			cursor: pointer;
+			font-weight: 700;
+		}
+
+		button.secondary {
+			background: rgba(255, 255, 255, 0.08);
+			color: var(--text);
+			border: 1px solid var(--border);
+		}
+
+		button.danger {
+			background: linear-gradient(135deg, var(--bad), #ff9b9b);
+			color: #170505;
+		}
+
+		button:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+		}
+
+		.status {
+			display: grid;
+			gap: 10px;
+		}
+
+		.status-line {
+			padding: 12px 14px;
+			border-radius: 14px;
+			border: 1px solid var(--border);
+			background: rgba(255, 255, 255, 0.04);
+			color: var(--text);
+			line-height: 1.45;
+		}
+
+		.status-line.good { border-color: rgba(81, 208, 138, 0.35); }
+		.status-line.warn { border-color: rgba(255, 209, 102, 0.35); }
+		.status-line.bad { border-color: rgba(255, 107, 107, 0.35); }
+
+		.reveal {
+			min-height: 380px;
+			border-radius: 22px;
+			border: 1px solid var(--border);
+			background: rgba(15, 17, 21, 0.75);
+			overflow: hidden;
+			position: relative;
+			padding: 12px;
+		}
+
+		.reveal-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+			gap: 12px;
+			width: 100%;
+		}
+
+		.grid-cell {
+			position: relative;
+			border-radius: 16px;
+			overflow: hidden;
+			background: #000;
+			border: 1px solid var(--border);
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+			aspect-ratio: 4 / 5;
+			animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		}
+
+		@keyframes popIn {
+			0% { transform: scale(0.85); opacity: 0; }
+			100% { transform: scale(1); opacity: 1; }
+		}
+
+		.grid-cell img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.grid-cell-overlay {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			padding: 10px 12px;
+			background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.88) 100%);
+			color: #fff;
+		}
+
+		.grid-cell-name {
+			font-size: 0.85rem;
+			font-weight: 700;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.grid-cell-row {
+			font-size: 0.75rem;
+			color: var(--accent);
+		}
+
+		.reveal-empty {
+			position: absolute;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			color: var(--muted);
+			padding: 28px;
+			text-align: center;
+			line-height: 1.5;
+		}
+
+		.queue {
+			display: grid;
+			gap: 12px;
+		}
+
+		.queue-item {
+			display: grid;
+			grid-template-columns: 96px minmax(0, 1fr);
+			gap: 12px;
+			align-items: center;
+			padding: 12px;
+			border-radius: 16px;
+			border: 1px solid var(--border);
+			background: rgba(255, 255, 255, 0.04);
+		}
+
+		.queue-item.active { border-color: rgba(119, 166, 255, 0.5); }
+		.queue-item.done { opacity: 0.7; }
+		.queue-item.pending { border-color: rgba(255, 209, 102, 0.35); }
+
+		.queue-thumb {
+			width: 96px;
+			height: 64px;
+			border-radius: 12px;
+			object-fit: cover;
+			background: #000;
+			border: 1px solid var(--border);
+		}
+
+		.meta {
+			display: grid;
+			gap: 6px;
+		}
+
+		.meta .title {
+			font-weight: 700;
+		}
+
+		.meta .sub {
+			color: var(--muted);
+			font-size: 0.92rem;
+			line-height: 1.4;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			border-radius: 999px;
+			padding: 5px 10px;
+			font-size: 0.8rem;
+			font-weight: 700;
+			width: fit-content;
+		}
+
+		.badge.good { background: rgba(81, 208, 138, 0.15); color: var(--good); }
+		.badge.warn { background: rgba(255, 209, 102, 0.15); color: var(--warn); }
+		.badge.bad { background: rgba(255, 107, 107, 0.15); color: var(--bad); }
+		.badge.neutral { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+
+		@media (max-width: 980px) {
+			.grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="shell">
+		<section class="header">
+			<h1>Kiosk Backend Test</h1>
+			<p>
+				Single-file kiosk page for backend testing. It polls the Apps Script endpoint, maintains a cursor, renders rows in order,
+				and keeps failed rows pending for a limited number of retries before skipping them.
+			</p>
+		</section>
+
+		<section class="grid">
+			<aside class="card">
+				<h2>Connection</h2>
+				<div class="field">
+					<label for="endpointUrl">Apps Script /exec URL</label>
+					<input id="endpointUrl" type="url" placeholder="https://script.google.com/macros/s/AKfycbxSF4jpu4_OlV789RlKx-nWhO6I3shv5AtIDWuTypCj6Rr90cylLvgqAT4mQHRdn1BB4Q/exec">
+				</div>
+				<div class="field">
+					<label for="cursorKey">Cursor storage key</label>
+					<input id="cursorKey" type="text" value="selfie.kiosk.cursor">
+				</div>
+				<div class="field">
+					<label for="pollInterval">Poll interval (ms)</label>
+					<input id="pollInterval" type="number" min="1000" step="500" value="5000">
+				</div>
+				<div class="field">
+					<label for="imageTimeout">Image load timeout (ms)</label>
+					<input id="imageTimeout" type="number" min="1000" step="500" value="12000">
+				</div>
+				<div class="field">
+					<label for="maxImageAttempts">Max image attempts before skip</label>
+					<input id="maxImageAttempts" type="number" min="1" step="1" value="3">
+				</div>
+				<div class="field">
+					<label for="sinceCursor">Initial cursor</label>
+					<input id="sinceCursor" type="number" min="0" step="1" value="0">
+				</div>
+				<div class="row">
+					<button id="startBtn">Start polling</button>
+					<button id="stopBtn" class="secondary" disabled>Stop</button>
+					<button id="clearBtn" class="secondary">Clear queue</button>
+				</div>
+				<div class="row" style="margin-top: 10px;">
+					<button id="saveBtn" class="secondary">Save settings</button>
+					<button id="loadBtn" class="secondary">Load settings</button>
+				</div>
+				<div class="field" style="margin-top: 14px;">
+					<label for="manualJson">Manual test rows (JSON array)</label>
+					<textarea id="manualJson" placeholder='[{"rowNumber":1,"uploadID":"demo","imageURL":"https://...","timestamp":"..."}]'></textarea>
+				</div>
+				<div class="row">
+					<button id="injectBtn" class="secondary">Inject rows</button>
+					<button id="pollBtn" class="secondary">Poll once</button>
+				</div>
+				<div class="field" style="margin-top: 14px;">
+					<label for="rawOutput">Last backend response / state</label>
+					<textarea id="rawOutput" readonly></textarea>
+				</div>
+			</aside>
+
+			<section class="card">
+				<h2>Reveal</h2>
+				<div class="reveal" id="reveal">
+					<div class="reveal-empty" id="revealEmpty">No row revealed yet. Start polling the Apps Script backend to display uploads here.</div>
+				</div>
+				<div style="height: 16px;"></div>
+				<div class="status" id="status"></div>
+				<div style="height: 16px;"></div>
+				<div class="queue" id="queue"></div>
+			</section>
+		</section>
+	</main>
+
+	<script src="../KioskDisplayLogics.js"></script>
+	<script>
+		(function () {
+			function $(id) {
+				return document.getElementById(id);
+			}
+
+			function safeJsonParse(text) {
+				try {
+					return JSON.parse(text);
+				} catch (error) {
+					return null;
+				}
+			}
+
+			function nowTime() {
+				return new Date().toLocaleTimeString();
+			}
+
+			function escapeHtml(value) {
+				return String(value)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;')
+					.replace(/'/g, '&#39;');
+			}
+
+			function canUseLocalStorage() {
+				try {
+					return typeof window.localStorage !== 'undefined';
+				} catch (error) {
+					return false;
+				}
+			}
+
+			function getStoredValue(key) {
+				if (!canUseLocalStorage()) {
+					return null;
+				}
+				try {
+					return window.localStorage.getItem(key);
+				} catch (error) {
+					return null;
+				}
+			}
+
+			function setStoredValue(key, value) {
+				if (!canUseLocalStorage()) {
+					return;
+				}
+				try {
+					window.localStorage.setItem(key, String(value));
+				} catch (error) {
+					// ignore persistence failures
+				}
+			}
+
+			function appendStatus(message, kind) {
+				var line = document.createElement('div');
+				line.className = 'status-line' + (kind ? ' ' + kind : '');
+				line.textContent = nowTime() + ' ' + message;
+				$('status').prepend(line);
+			}
+
+			function setRevealEmpty(message) {
+				$('revealEmpty').style.display = message ? 'grid' : 'none';
+				$('revealEmpty').textContent = message || '';
+			}
+
+			function renderImage(url, alt) {
+				var existing = $('reveal').querySelector('img');
+				if (!existing) {
+					existing = document.createElement('img');
+					$('reveal').appendChild(existing);
+				}
+				existing.alt = alt || 'Kiosk reveal image';
+				existing.src = url;
+				setRevealEmpty('');
+			}
+
+			function renderQueue(queue, cursor) {
+				var host = $('queue');
+				host.innerHTML = '';
+				if (!queue.length) {
+					host.innerHTML = '<div class="status-line">Queue is empty. Current cursor: ' + escapeHtml(cursor) + '</div>';
+					return;
+				}
+
+				queue.forEach(function (row) {
+					var item = document.createElement('div');
+					item.className = 'queue-item ' + (row.state || 'pending');
+					item.innerHTML = [
+						'<img class="queue-thumb" src="' + escapeHtml(row.imageURL || '') + '" alt="row ' + escapeHtml(row.rowNumber) + '">',
+						'<div class="meta">',
+							'<div class="title">Row ' + escapeHtml(row.rowNumber) + ' &middot; ' + escapeHtml(row.uploadID || '') + '</div>',
+							'<div class="sub">' + escapeHtml(row.timestamp || '') + '</div>',
+							'<div class="badge ' + escapeHtml(row.stateBadge || 'neutral') + '">' + escapeHtml(row.stateLabel || 'pending') + '</div>',
+						'</div>'
+					].join('');
+					host.appendChild(item);
+				});
+			}
+
+			function readSettings() {
+				return {
+					endpointUrl: $('endpointUrl').value.trim(),
+					cursorKey: $('cursorKey').value.trim() || 'selfie.kiosk.cursor',
+					pollIntervalMs: Number($('pollInterval').value) || 5000,
+					imageLoadTimeoutMs: Number($('imageTimeout').value) || 12000,
+					maxImageLoadAttempts: Number($('maxImageAttempts').value) || 3,
+					since: Number($('sinceCursor').value) || 0
+				};
+			}
+
+			function saveSettings() {
+				var settings = readSettings();
+				setStoredValue('selfie.kiosk.settings', JSON.stringify(settings));
+				appendStatus('Settings saved locally', 'good');
+			}
+
+			function loadSettings() {
+				var raw = getStoredValue('selfie.kiosk.settings');
+				if (!raw) {
+					appendStatus('No saved settings found', 'warn');
+					return;
+				}
+
+				var settings = safeJsonParse(raw);
+				if (!settings) {
+					appendStatus('Saved settings were invalid JSON', 'bad');
+					return;
+				}
+
+				$('endpointUrl').value = settings.endpointUrl || '';
+				$('cursorKey').value = settings.cursorKey || 'selfie.kiosk.cursor';
+				$('pollInterval').value = settings.pollIntervalMs || 5000;
+				$('imageTimeout').value = settings.imageLoadTimeoutMs || 12000;
+				$('maxImageAttempts').value = settings.maxImageLoadAttempts || 3;
+				$('sinceCursor').value = settings.since || 0;
+				appendStatus('Settings loaded', 'good');
+			}
+
+			function renderCellGrid(cells) {
+				var reveal = $('reveal');
+				if (!cells || !cells.length) {
+					reveal.innerHTML = '<div class="reveal-empty" id="revealEmpty">No photo cells populated yet. Start polling to load guest photos into cells.</div>';
+					return;
+				}
+
+				var gridHtml = ['<div class="reveal-grid">'];
+				cells.forEach(function (cell) {
+					gridHtml.push([
+						'<div class="grid-cell">',
+							'<img src="' + escapeHtml(cell.imageURL || '') + '" alt="Row ' + escapeHtml(cell.rowNumber) + '">',
+							'<div class="grid-cell-overlay">',
+								'<div class="grid-cell-name">' + escapeHtml(cell.name || ('Row #' + cell.rowNumber)) + '</div>',
+								'<div class="grid-cell-row">Row #' + escapeHtml(cell.rowNumber) + ' &middot; ' + escapeHtml(cell.uploadID || '') + '</div>',
+							'</div>',
+						'</div>'
+					].join(''));
+				});
+				gridHtml.push('</div>');
+				reveal.innerHTML = gridHtml.join('');
+			}
+
+			function createKioskController(settings) {
+				var displayOptions = {
+					endpointUrl: settings.endpointUrl,
+					pollIntervalMs: settings.pollIntervalMs,
+					imageLoadTimeoutMs: settings.imageLoadTimeoutMs,
+					storageKey: settings.cursorKey,
+					maxImageLoadAttempts: settings.maxImageLoadAttempts,
+					maxCells: 9,
+					since: settings.since,
+					onStatus: function (msg) {
+						appendStatus(msg, 'neutral');
+					},
+					onRowConsumed: function (row) {
+						appendStatus('Consumed row ' + row.rowNumber + ' (' + row.uploadID + ')', 'good');
+					},
+					onGridUpdate: function (gridCells) {
+						renderCellGrid(gridCells);
+					}
+				};
+
+				var instance = window.SelfieKiosk.createKioskDisplay(displayOptions);
+
+				return {
+					start: instance.start,
+					stop: instance.stop,
+					clearQueue: function () {
+						instance.resetCursor(instance.getState().cursor);
+						renderCellGrid([]);
+						appendStatus('Queue and cells cleared', 'neutral');
+					},
+					resetCursor: function (nextCursor) {
+						instance.resetCursor(nextCursor);
+						renderCellGrid([]);
+						appendStatus('Cursor reset to ' + nextCursor, 'neutral');
+					},
+					pollOnce: instance.pollOnce,
+					injectRows: instance.injectRows,
+					getState: instance.getState
+				};
+			}
+
+			function loadSettingsIntoForm() {
+				$('endpointUrl').value = getStoredValue('selfie.kiosk.endpoint') || '';
+				$('cursorKey').value = getStoredValue('selfie.kiosk.cursorKey') || 'selfie.kiosk.cursor';
+				$('pollInterval').value = getStoredValue('selfie.kiosk.pollInterval') || '5000';
+				$('imageTimeout').value = getStoredValue('selfie.kiosk.imageTimeout') || '12000';
+				$('maxImageAttempts').value = getStoredValue('selfie.kiosk.maxImageAttempts') || '3';
+				$('sinceCursor').value = getStoredValue('selfie.kiosk.since') || '0';
+			}
+
+			function saveFormSettings() {
+				setStoredValue('selfie.kiosk.endpoint', $('endpointUrl').value.trim());
+				setStoredValue('selfie.kiosk.cursorKey', $('cursorKey').value.trim() || 'selfie.kiosk.cursor');
+				setStoredValue('selfie.kiosk.pollInterval', $('pollInterval').value || '5000');
+				setStoredValue('selfie.kiosk.imageTimeout', $('imageTimeout').value || '12000');
+				setStoredValue('selfie.kiosk.maxImageAttempts', $('maxImageAttempts').value || '3');
+				setStoredValue('selfie.kiosk.since', $('sinceCursor').value || '0');
+				appendStatus('Settings saved', 'good');
+			}
+
+			var kiosk = createKioskController(readSettings());
+			window.KioskBackendTest = kiosk;
+
+			loadSettingsIntoForm();
+			renderQueue([], Number($('sinceCursor').value) || 0);
+			setRevealEmpty('No row revealed yet. Start polling the Apps Script backend to display uploads here.');
+
+			$('startBtn').addEventListener('click', function () {
+				kiosk = createKioskController(readSettings());
+				window.KioskBackendTest = kiosk;
+				kiosk.start();
+			});
+
+			$('stopBtn').addEventListener('click', function () {
+				kiosk.stop();
+			});
+
+			$('clearBtn').addEventListener('click', function () {
+				kiosk.clearQueue();
+				$('status').innerHTML = '';
+				$('rawOutput').value = '';
+				setRevealEmpty('Queue cleared. Waiting for uploads...');
+			});
+
+			$('saveBtn').addEventListener('click', function () {
+				saveFormSettings();
+			});
+
+			$('loadBtn').addEventListener('click', function () {
+				loadSettingsIntoForm();
+				appendStatus('Settings loaded', 'good');
+			});
+
+			$('injectBtn').addEventListener('click', function () {
+				var rows = safeJsonParse($('manualJson').value.trim());
+				if (!Array.isArray(rows)) {
+					appendStatus('Manual JSON must be an array of rows', 'bad');
+					return;
+				}
+				kiosk.injectRows(rows).catch(function (error) {
+					appendStatus(error.message, 'bad');
+				});
+			});
+
+			$('pollBtn').addEventListener('click', function () {
+				kiosk.pollOnce().catch(function (error) {
+					appendStatus(error.message, 'bad');
+				});
+			});
+
+			window.addEventListener('beforeunload', function () {
+				if (window.KioskBackendTest) {
+					window.KioskBackendTest.stop();
+				}
+			});
+
+			appendStatus('Kiosk page ready. Paste the Apps Script URL and start polling.', 'neutral');
+		})();
+	</script>
+</body>
+</html>

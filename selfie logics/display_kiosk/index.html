@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- 
+		CRITICAL: "no-referrer" meta tag is required.
+		Google Drive blocks image embedding/hotlinking from "localhost" by returning a 429 error 
+		when a Referer header is present. Removing the referrer bypasses this protection.
+	-->
+	<meta name="referrer" content="no-referrer">
+	<title>Display Kiosk</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			background: #fff;
+			width: 100%;
+			max-width: 1080px;
+			min-height: 100vh;
+			margin: 0 auto;
+			padding: 20px;
+			font-family: sans-serif;
+		}
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 10px;
+		}
+		.cell {
+			background: #eee;
+			aspect-ratio: 1 / 1;
+			overflow: hidden;
+		}
+		.cell img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+		#status { display: none; }
+	</style>
+</head>
+<body>
+	<div class="grid" id="grid"></div>
+	<div id="status"></div>
+
+	<script>
+	(function () {
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSF4jpu4_OlV789RlKx-nWhO6I3shv5AtIDWuTypCj6Rr90cylLvgqAT4mQHRdn1BB4Q/exec';
+		var gridEl = document.getElementById('grid');
+		var statusEl = document.getElementById('status');
+		
+		var allRows = [];            // Stores deduplicated photo row records
+		var seenUploads = new Set();  // Tracks unique uploadIDs to block duplicate rendering
+		var cursor = 0;              // Tracking index to only poll new uploads (delta pagination)
+		var isPolling = false;       // Lock flag to prevent overlapping fetch requests
+
+		function setStatus(msg) {
+			statusEl.textContent = msg;
+			console.log('[DisplayKiosk Log]', msg);
+		}
+
+		// Converts standard Google Drive export links into direct CDN URLs.
+		// e.g. drive.google.com/uc?export=view -> lh3.googleusercontent.com/d/ID
+		// This bypasses login redirects and yields 10x faster load times.
+		function toDirectImageUrl(driveUrl) {
+			var match = driveUrl && driveUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+			if (match) {
+				return 'https://lh3.googleusercontent.com/d/' + match[1];
+			}
+			return driveUrl;
+		}
+
+		// Clears and completely rebuilds the HTML grid items
+		function renderGrid() {
+			console.log('[DisplayKiosk] Rendering grid with', allRows.length, 'cells.');
+			gridEl.innerHTML = '';
+			allRows.forEach(function (row) {
+				var div = document.createElement('div');
+				div.className = 'cell';
+				var img = document.createElement('img');
+				img.src = toDirectImageUrl(row.imageURL);
+				img.alt = row.name || 'Guest';
+				
+				// referrerpolicy ensures the browser doesn't send host referrers (bypasses Google's hotlink blocker)
+				img.referrerPolicy = 'no-referrer';
+				img.loading = 'lazy';
+				
+				div.appendChild(img);
+				gridEl.appendChild(div);
+			});
+		}
+
+		// Scrolls to the bottom of the page to show the latest added images
+		function scrollToBottom() {
+			setTimeout(function () {
+				window.scrollTo({
+					top: document.documentElement.scrollHeight || document.body.scrollHeight,
+					behavior: 'smooth'
+				});
+			}, 100);
+		}
+
+		// Polls the Apps Script endpoint for updates using delta paginated queries
+		async function poll() {
+			// Lock check: Prevents simultaneous poll triggers on slow network connections
+			if (isPolling) {
+				console.warn('[DisplayKiosk] Previous poll is still in progress. Skipping this cycle to prevent duplicates.');
+				return;
+			}
+			isPolling = true;
+
+			try {
+				setStatus('Polling since=' + cursor + '...');
+				var startTime = Date.now();
+				var resp = await fetch(APPS_SCRIPT_URL + '?since=' + cursor);
+				var data = await resp.json();
+				var duration = Date.now() - startTime;
+
+				console.log('[DisplayKiosk] Fetch returned in', duration, 'ms. Payload:', data);
+
+				if (data.ok && data.rows && data.rows.length) {
+					var duplicatesCount = 0;
+					var addedCount = 0;
+
+					// Filter new rows; discard matches against already rendered uploadIDs
+					data.rows.forEach(function (row) {
+						if (!seenUploads.has(row.uploadID)) {
+							seenUploads.add(row.uploadID);
+							allRows.push(row);
+							addedCount++;
+						} else {
+							duplicatesCount++;
+						}
+					});
+
+					cursor = data.cursor; // Advance cursor position to the latest row index
+					console.log('[DisplayKiosk] Poll results:', {
+						totalNewFetched: data.rows.length,
+						addedToGrid: addedCount,
+						ignoredDuplicates: duplicatesCount,
+						newCursorPosition: cursor
+					});
+
+					setStatus('Got ' + addedCount + ' new rows (' + duplicatesCount + ' duplicates ignored). Total: ' + allRows.length);
+					if (addedCount > 0) {
+						renderGrid();
+						scrollToBottom();
+					}
+				} else {
+					setStatus('No new rows. Total: ' + allRows.length);
+				}
+			} catch (err) {
+				console.error('[DisplayKiosk] Poll request failed:', err);
+				setStatus('Poll error: ' + err.message);
+			} finally {
+				isPolling = false; // Release lock
+			}
+		}
+
+		// Poll immediately, then every 4 seconds
+		poll();
+		setInterval(poll, 4000);
+	})();
+	</script>
+</body>
+</html>

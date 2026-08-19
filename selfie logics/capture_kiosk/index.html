@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Capture Kiosk</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font-family: sans-serif; background: #111; color: #fff; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+		.form-section { display: flex; flex-direction: column; gap: 12px; width: 340px; }
+		.form-section label { font-size: 14px; color: #aaa; }
+		.form-section input { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 6px; background: #222; color: #fff; font-size: 16px; }
+		.btn { padding: 14px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+		.btn-capture { background: #fff; color: #000; }
+		.btn-upload { background: #2e7d32; color: #fff; }
+		.btn-retake { background: #333; color: #fff; }
+		.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+		.camera-wrap { position: relative; width: 340px; height: 340px; background: #000; border: 2px solid #333; margin: 16px 0; overflow: hidden; }
+		.camera-wrap video, .camera-wrap canvas, .camera-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+		.hidden { display: none !important; }
+		.status { font-size: 13px; color: #888; margin-top: 10px; min-height: 20px; text-align: center; }
+		.success-msg { color: #4caf50; font-weight: bold; font-size: 18px; text-align: center; margin: 20px 0; }
+		.row { display: flex; gap: 10px; }
+		.row .btn { flex: 1; }
+	</style>
+</head>
+<body>
+
+	<!-- STEP 1: Form + Camera Viewfinder -->
+	<div id="step-form" class="form-section">
+		<label>Name</label>
+		<input id="guestName" type="text" placeholder="Enter your name">
+		<label>Mobile Number</label>
+		<input id="guestPhone" type="tel" placeholder="Enter mobile number">
+		<div class="camera-wrap" id="cameraWrap">
+			<video id="videoFeed" autoplay playsinline class="hidden"></video>
+			<canvas id="captureCanvas" class="hidden"></canvas>
+			<img id="previewImg" class="hidden" alt="Preview">
+		</div>
+		<button class="btn btn-capture" id="btnOpenCamera">Open Camera</button>
+		<button class="btn btn-capture hidden" id="btnCapture">Capture Photo</button>
+		<div class="row hidden" id="afterCapture">
+			<button class="btn btn-retake" id="btnRetake">Retake</button>
+			<button class="btn btn-upload" id="btnUpload">Upload</button>
+		</div>
+		<div class="status" id="status"></div>
+	</div>
+
+	<!-- STEP 2: Success Confirmation Screen -->
+	<div id="step-success" class="form-section hidden">
+		<div class="success-msg">Photo Uploaded ✓</div>
+		<button class="btn btn-capture" id="btnNext">Take Another</button>
+	</div>
+
+	<script>
+	(function () {
+		// Target URL of the Google Apps Script Web App deployment
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSF4jpu4_OlV789RlKx-nWhO6I3shv5AtIDWuTypCj6Rr90cylLvgqAT4mQHRdn1BB4Q/exec';
+
+		var video = document.getElementById('videoFeed');
+		var canvas = document.getElementById('captureCanvas');
+		var previewImg = document.getElementById('previewImg');
+		var cameraWrap = document.getElementById('cameraWrap');
+		var btnOpenCamera = document.getElementById('btnOpenCamera');
+		var btnCapture = document.getElementById('btnCapture');
+		var btnRetake = document.getElementById('btnRetake');
+		var btnUpload = document.getElementById('btnUpload');
+		var btnNext = document.getElementById('btnNext');
+		var afterCapture = document.getElementById('afterCapture');
+		var stepForm = document.getElementById('step-form');
+		var stepSuccess = document.getElementById('step-success');
+		var statusEl = document.getElementById('status');
+		var guestName = document.getElementById('guestName');
+		var guestPhone = document.getElementById('guestPhone');
+
+		var stream = null;
+		var capturedBlob = null;
+		var isUploading = false;
+
+		function setStatus(msg) { statusEl.textContent = msg; }
+
+		function show(el) { el.classList.remove('hidden'); }
+		function hide(el) { el.classList.add('hidden'); }
+
+		// --- Step 1: Camera Access Initialization ---
+		btnOpenCamera.addEventListener('click', async function () {
+			setStatus('Opening camera...');
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1080 } },
+					audio: false
+				});
+				video.srcObject = stream;
+				show(video);
+				hide(btnOpenCamera);
+				show(btnCapture);
+				hide(previewImg);
+				setStatus('');
+			} catch (err) {
+				setStatus('Camera error: ' + err.message);
+			}
+		});
+
+		// --- Step 2: Direct Canvas Capture, Crop & Compression ---
+		btnCapture.addEventListener('click', function () {
+			// Find the smallest dimension to crop a perfect 1:1 square out of the video feed
+			var size = Math.min(video.videoWidth, video.videoHeight);
+			var sx = (video.videoWidth - size) / 2; // Horizontal centering offset
+			var sy = (video.videoHeight - size) / 2; // Vertical centering offset
+
+			// Set canvas resolution directly to 1080x1080 (combines capture and downscaling)
+			canvas.width = 1080;
+			canvas.height = 1080;
+			var ctx = canvas.getContext('2d');
+			
+			// Draw centered square cropped region onto target 1080x1080 canvas
+			ctx.drawImage(video, sx, sy, size, size, 0, 0, 1080, 1080);
+
+			// Direct compression to optimized JPEG blob at 85% quality
+			canvas.toBlob(function (blob) {
+				capturedBlob = blob;
+				previewImg.src = URL.createObjectURL(blob);
+				show(previewImg);
+				hide(video);
+				hide(btnCapture);
+				show(afterCapture);
+				console.log('[CaptureKiosk] Photo captured and compressed directly to:', blob.size, 'bytes');
+				setStatus('Preview ready. Upload or retake.');
+			}, 'image/jpeg', 0.85);
+		});
+
+		// --- Step 3: Retake Layout Toggle ---
+		btnRetake.addEventListener('click', function () {
+			capturedBlob = null;
+			previewImg.src = '';
+			hide(previewImg);
+			hide(afterCapture);
+			show(video);
+			show(btnCapture);
+			setStatus('');
+		});
+
+		// Converts image blob to base64 string for the POST JSON payload
+		function blobToDataUrl(blob) {
+			return new Promise(function (resolve, reject) {
+				var reader = new FileReader();
+				reader.onload = function () { resolve(reader.result); };
+				reader.onerror = function () { reject(new Error('Failed to convert image blob')); };
+				reader.readAsDataURL(blob);
+			});
+		}
+
+		// --- Step 4: Base64 Serialization & Upload Retry Loop ---
+		async function uploadPhoto(options) {
+			var onStatus = options.onStatus || function () {};
+			var uploadID = 'upload_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+			var base64Data = await blobToDataUrl(options.blob);
+			
+			var payload = {
+				uploadID: uploadID,
+				name: options.name || '',
+				phone: options.phone || '',
+				imageData: base64Data,
+				contentType: 'image/jpeg',
+				fileName: 'kiosk_selfie.jpg'
+			};
+
+			var maxRetries = 2;
+			var lastError = null;
+
+			// Request loop with automatic backoff retry logic
+			for (var attempt = 0; attempt <= maxRetries; attempt++) {
+				try {
+					onStatus('Uploading... (attempt ' + (attempt + 1) + ' of ' + (maxRetries + 1) + ')');
+					
+					var response = await fetch(options.appsScriptUrl, {
+						method: 'POST',
+						mode: 'no-cors', // Bypasses browser CORS preflight check restrictions
+						headers: { 'Content-Type': 'text/plain' },
+						body: JSON.stringify(payload)
+					});
+
+					// Under no-cors, response is opaque. Successful completion of fetch without throw is success.
+					onStatus('Upload saved successfully');
+					return { ok: true, uploadID: uploadID };
+				} catch (error) {
+					lastError = error;
+					console.warn('[CaptureKiosk] Upload attempt ' + (attempt + 1) + ' failed:', error);
+					
+					if (attempt < maxRetries) {
+						var delay = 1000 * Math.pow(2, attempt); // Exponential backoff (1s, 2s)
+						onStatus('Upload failed. Retrying in ' + delay + 'ms...');
+						await new Promise(function (resolve) { setTimeout(resolve, delay); });
+					}
+				}
+			}
+			throw lastError || new Error('Upload failed after all retries');
+		}
+
+		// --- Step 5: Upload Click Handler ---
+		btnUpload.addEventListener('click', async function () {
+			if (!capturedBlob) { setStatus('No photo captured.'); return; }
+			btnUpload.disabled = true;
+			btnRetake.disabled = true;
+			setStatus('Uploading...');
+			isUploading = true;
+
+			try {
+				var result = await uploadPhoto({
+					appsScriptUrl: APPS_SCRIPT_URL,
+					blob: capturedBlob,
+					name: guestName.value.trim(),
+					phone: guestPhone.value.trim(),
+					onStatus: function (msg) {
+						setStatus(msg);
+						console.log('[CaptureKiosk Status]', msg);
+					}
+				});
+
+				console.log('[CaptureKiosk] Upload success:', result);
+				hide(stepForm);
+				show(stepSuccess);
+				stopCamera();
+			} catch (err) {
+				console.error('[CaptureKiosk] Complete upload process failed:', err);
+				setStatus('Upload failed: ' + err.message);
+			} finally {
+				btnUpload.disabled = false;
+				btnRetake.disabled = false;
+				isUploading = false;
+				resetInactivityTimer();
+			}
+		});
+
+		// --- Step 6: Reset View for Next Guest ---
+		function goToPage1() {
+			if (inactivityTimer) {
+				clearTimeout(inactivityTimer);
+				inactivityTimer = null;
+			}
+			capturedBlob = null;
+			previewImg.src = '';
+			guestName.value = '';
+			guestPhone.value = '';
+			hide(stepSuccess);
+			show(stepForm);
+			hide(video);
+			hide(previewImg);
+			hide(afterCapture);
+			hide(btnCapture);
+			show(btnOpenCamera);
+			setStatus('');
+			stopCamera();
+		}
+
+		btnNext.addEventListener('click', goToPage1);
+
+		// Release camera hardware resource when not viewing
+		function stopCamera() {
+			if (stream) {
+				stream.getTracks().forEach(function (t) { t.stop(); });
+				stream = null;
+			}
+		}
+
+		window.addEventListener('beforeunload', stopCamera);
+
+		// --- Inactivity Timeout Logics ---
+		var INACTIVITY_TIMEOUT = 10000; // 10 seconds
+		var inactivityTimer = null;
+
+		function resetInactivityTimer() {
+			if (inactivityTimer) {
+				clearTimeout(inactivityTimer);
+			}
+			// Do not trigger timeout while upload is in progress
+			if (isUploading) {
+				return;
+			}
+
+			// We only want the timer to run if the page is NOT in the default page 1 state.
+			var isPage1Default = !stepForm.classList.contains('hidden') && 
+			                     video.classList.contains('hidden') && 
+			                     previewImg.classList.contains('hidden') && 
+			                     guestName.value.trim() === '' && 
+			                     guestPhone.value.trim() === '';
+
+			if (isPage1Default) {
+				return;
+			}
+
+			inactivityTimer = setTimeout(goToPage1, INACTIVITY_TIMEOUT);
+		}
+
+		// Reset timer on any mouse click, touch, or keypress/input
+		['click', 'touchstart', 'input', 'keydown'].forEach(function (evtName) {
+			document.addEventListener(evtName, resetInactivityTimer, true);
+		});
+	})();
+	</script>
+</body>
+</html>

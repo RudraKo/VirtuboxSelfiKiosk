@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Selfie Logic Test Harness</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f4efe7;
+			--panel: rgba(255, 255, 255, 0.82);
+			--panel-border: rgba(60, 42, 22, 0.12);
+			--text: #1f1a17;
+			--muted: #6d6258;
+			--accent: #b65f2a;
+			--accent-strong: #8f451d;
+			--success: #16794c;
+			--danger: #a33a2c;
+			--shadow: 0 20px 60px rgba(48, 28, 12, 0.12);
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			color: var(--text);
+			background:
+				radial-gradient(circle at top left, rgba(182, 95, 42, 0.18), transparent 30%),
+				radial-gradient(circle at top right, rgba(22, 121, 76, 0.12), transparent 26%),
+				linear-gradient(180deg, #fbf7f1 0%, #f4efe7 46%, #efe6da 100%);
+			min-height: 100vh;
+			padding: 28px;
+		}
+
+		.shell {
+			max-width: 1200px;
+			margin: 0 auto;
+			display: grid;
+			gap: 20px;
+		}
+
+		.hero {
+			display: grid;
+			gap: 12px;
+			padding: 24px;
+			border-radius: 24px;
+			background: var(--panel);
+			border: 1px solid var(--panel-border);
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(12px);
+		}
+
+		.hero h1 {
+			margin: 0;
+			font-size: clamp(2rem, 4vw, 3.4rem);
+			line-height: 1;
+			letter-spacing: -0.04em;
+		}
+
+		.hero p {
+			margin: 0;
+			max-width: 78ch;
+			color: var(--muted);
+			font-size: 1rem;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: 1.05fr 0.95fr;
+			gap: 20px;
+			align-items: start;
+		}
+
+		.card {
+			border-radius: 24px;
+			padding: 20px;
+			background: var(--panel);
+			border: 1px solid var(--panel-border);
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(12px);
+		}
+
+		.card h2 {
+			margin: 0 0 14px;
+			font-size: 1.05rem;
+			letter-spacing: 0.02em;
+			text-transform: uppercase;
+			color: var(--muted);
+		}
+
+		.form-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+		}
+
+		.field {
+			display: grid;
+			gap: 7px;
+		}
+
+		.field.full {
+			grid-column: 1 / -1;
+		}
+
+		label {
+			font-size: 0.86rem;
+			color: var(--muted);
+		}
+
+		input, button, textarea {
+			font: inherit;
+		}
+
+		input[type="text"],
+		input[type="url"],
+		input[type="number"],
+		input[type="file"],
+		textarea {
+			width: 100%;
+			border: 1px solid rgba(62, 45, 27, 0.16);
+			border-radius: 14px;
+			background: rgba(255, 255, 255, 0.88);
+			padding: 12px 14px;
+			color: var(--text);
+		}
+
+		textarea {
+			min-height: 140px;
+			resize: vertical;
+		}
+
+		.actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			margin-top: 14px;
+		}
+
+		button {
+			border: 0;
+			border-radius: 999px;
+			padding: 11px 16px;
+			color: white;
+			background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+			box-shadow: 0 10px 26px rgba(143, 69, 29, 0.24);
+			cursor: pointer;
+		}
+
+		button.secondary {
+			background: #2f2b28;
+		}
+
+		button.ghost {
+			background: #ffffff;
+			color: var(--text);
+			border: 1px solid rgba(62, 45, 27, 0.16);
+			box-shadow: none;
+		}
+
+		button:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+		}
+
+		.preview-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+		}
+
+		.preview {
+			min-height: 260px;
+			border-radius: 20px;
+			border: 1px dashed rgba(62, 45, 27, 0.22);
+			background: rgba(255, 255, 255, 0.6);
+			display: grid;
+			place-items: center;
+			overflow: hidden;
+			padding: 12px;
+		}
+
+		.preview img {
+			max-width: 100%;
+			max-height: 100%;
+			object-fit: contain;
+			display: block;
+		}
+
+		.status-log {
+			min-height: 180px;
+			max-height: 320px;
+			overflow: auto;
+			white-space: pre-wrap;
+			background: rgba(24, 20, 18, 0.96);
+			color: #e7dfd7;
+			border-radius: 18px;
+			padding: 14px;
+			font-size: 0.92rem;
+			line-height: 1.45;
+		}
+
+		.note {
+			color: var(--muted);
+			font-size: 0.92rem;
+			margin-top: 12px;
+			line-height: 1.5;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			border-radius: 999px;
+			padding: 6px 10px;
+			background: rgba(182, 95, 42, 0.12);
+			color: var(--accent-strong);
+			font-size: 0.85rem;
+		}
+
+		.mini-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		@media (max-width: 900px) {
+			.grid {
+				grid-template-columns: 1fr;
+			}
+
+			.form-grid,
+			.preview-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="shell">
+		<section class="hero">
+			<div class="pill">Local selfie logic harness</div>
+			<h1>Crop, upload, poll, and verify the event flow before the event.</h1>
+			<p>
+				Paste the deployed Apps Script Web App URL here, then use the controls below to validate image crop/compress output,
+				exercise the upload retry path, inspect delta fetch results, and inspect kiosk queue behavior.
+			</p>
+		</section>
+
+		<section class="grid">
+			<div class="card">
+				<h2>Capture and upload</h2>
+				<div class="form-grid">
+					<div class="field full">
+						<label for="appsScriptUrl">Apps Script Web App /exec URL</label>
+						<input id="appsScriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+					</div>
+					<div class="field">
+						<label for="name">Name</label>
+						<input id="name" type="text" placeholder="Optional">
+					</div>
+					<div class="field">
+						<label for="phone">Phone</label>
+						<input id="phone" type="text" placeholder="Optional">
+					</div>
+					<div class="field">
+						<label for="uploadId">Upload ID</label>
+						<input id="uploadId" type="text" placeholder="Leave blank for a fresh ID">
+					</div>
+					<div class="field">
+						<label for="aspectRatio">Crop aspect ratio</label>
+						<input id="aspectRatio" type="number" step="0.01" value="0.80">
+					</div>
+					<div class="field">
+						<label for="quality">JPEG quality</label>
+						<input id="quality" type="number" step="0.01" min="0.1" max="1" value="0.88">
+					</div>
+					<div class="field">
+						<label for="maxDimension">Max output dimension</label>
+						<input id="maxDimension" type="number" step="1" min="200" value="1600">
+					</div>
+					<div class="field full">
+						<label for="fileInput">Photo file or camera capture</label>
+						<input id="fileInput" type="file" accept="image/*" capture="environment">
+					</div>
+				</div>
+
+				<div class="actions">
+					<button id="cropButton" type="button">Crop and preview</button>
+					<button id="submitButton" type="button">Submit photo</button>
+					<button id="submitTwiceButton" type="button" class="secondary">Submit twice with same ID</button>
+					<button id="clearButton" type="button" class="ghost">Clear log</button>
+				</div>
+
+				<div class="note">
+					Crop preview uses <strong>cropAndCompressImage()</strong>. Upload uses the compressed blob, not the raw original, so you can
+					catch output-size problems before the real deployment.
+				</div>
+			</div>
+
+			<div class="card">
+				<h2>Preview</h2>
+				<div class="preview-grid">
+					<div class="preview" id="rawPreviewWrap">
+						<span class="note">Original image preview</span>
+					</div>
+					<div class="preview" id="croppedPreviewWrap">
+						<span class="note">Cropped/compressed preview</span>
+					</div>
+				</div>
+				<div class="note" id="imageMeta">No image loaded yet.</div>
+			</div>
+		</section>
+
+		<section class="grid">
+			<div class="card">
+				<h2>Status</h2>
+				<div class="status-log" id="statusLog"></div>
+			</div>
+
+			<div class="card">
+				<h2>Endpoint checks</h2>
+				<div class="form-grid">
+					<div class="field">
+						<label for="since">doGet since cursor</label>
+						<input id="since" type="number" min="0" value="0">
+					</div>
+					<div class="field">
+						<label> </label>
+						<button id="deltaButton" type="button">Fetch doGet delta</button>
+					</div>
+					<div class="field full">
+						<label for="deltaOutput">doGet response</label>
+						<textarea id="deltaOutput" readonly></textarea>
+					</div>
+				</div>
+
+				<div class="mini-actions">
+					<button id="saveUrlButton" type="button" class="ghost">Remember URL locally</button>
+					<button id="loadUrlButton" type="button" class="ghost">Load saved URL</button>
+				</div>
+
+				<div class="note">
+					Kiosk logic is loaded on the page as well, so you can open DevTools and call
+					<strong>window.SelfieKiosk.createKioskDisplay(...)</strong> or inject test rows manually.
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<script src="config.js"></script>
+	<script src="../client_crop_compresser.js"></script>
+	<script src="../client_uplode.js"></script>
+	<script src="../KioskDisplayLogics.js"></script>
+	<script>
+		(function () {
+			var state = {
+				originalFile: null,
+				compressed: null,
+				kiosk: null,
+				uploadInProgress: false
+			};
+
+			var elements = {
+				appsScriptUrl: document.getElementById('appsScriptUrl'),
+				name: document.getElementById('name'),
+				phone: document.getElementById('phone'),
+				uploadId: document.getElementById('uploadId'),
+				aspectRatio: document.getElementById('aspectRatio'),
+				quality: document.getElementById('quality'),
+				maxDimension: document.getElementById('maxDimension'),
+				fileInput: document.getElementById('fileInput'),
+				cropButton: document.getElementById('cropButton'),
+				submitButton: document.getElementById('submitButton'),
+				submitTwiceButton: document.getElementById('submitTwiceButton'),
+				clearButton: document.getElementById('clearButton'),
+				statusLog: document.getElementById('statusLog'),
+				rawPreviewWrap: document.getElementById('rawPreviewWrap'),
+				croppedPreviewWrap: document.getElementById('croppedPreviewWrap'),
+				imageMeta: document.getElementById('imageMeta'),
+				since: document.getElementById('since'),
+				deltaButton: document.getElementById('deltaButton'),
+				deltaOutput: document.getElementById('deltaOutput'),
+				saveUrlButton: document.getElementById('saveUrlButton'),
+				loadUrlButton: document.getElementById('loadUrlButton')
+			};
+
+			function appendStatus(message, kind) {
+				var line = document.createElement('div');
+				var prefix = kind ? '[' + kind.toUpperCase() + '] ' : '';
+				line.textContent = new Date().toLocaleTimeString() + ' ' + prefix + message;
+				elements.statusLog.appendChild(line);
+				elements.statusLog.scrollTop = elements.statusLog.scrollHeight;
+			}
+
+			function setUploadInProgress(isUploading) {
+				state.uploadInProgress = isUploading;
+				elements.submitButton.disabled = isUploading;
+				elements.submitTwiceButton.disabled = isUploading;
+				elements.deltaButton.disabled = isUploading;
+				elements.saveUrlButton.disabled = isUploading;
+				elements.loadUrlButton.disabled = isUploading;
+			}
+
+			function setImagePreview(target, src, label) {
+				target.innerHTML = '';
+				var image = document.createElement('img');
+				image.alt = label;
+				image.src = src;
+				target.appendChild(image);
+			}
+
+			function getSelectedFile() {
+				return elements.fileInput.files && elements.fileInput.files[0] ? elements.fileInput.files[0] : null;
+			}
+
+			function readSettings() {
+				var appsScriptUrl = elements.appsScriptUrl.value.trim();
+				if (!appsScriptUrl) {
+					appsScriptUrl = localStorage.getItem('selfie.appsScriptUrl') || (window.SelfieTestConfig && window.SelfieTestConfig.appsScriptUrl) || '';
+					elements.appsScriptUrl.value = appsScriptUrl;
+				}
+
+				return {
+					appsScriptUrl: appsScriptUrl,
+					name: elements.name.value.trim(),
+					phone: elements.phone.value.trim(),
+					uploadID: elements.uploadId.value.trim() || '',
+					aspectRatio: Number(elements.aspectRatio.value) || 0.8,
+					quality: Number(elements.quality.value) || 0.88,
+					maxDimension: Number(elements.maxDimension.value) || 1600,
+					since: Number(elements.since.value) || 0
+				};
+			}
+
+			async function cropCurrentFile() {
+				var file = getSelectedFile();
+				if (!file) {
+					throw new Error('Pick an image first');
+				}
+
+				state.originalFile = file;
+				setImagePreview(elements.rawPreviewWrap, URL.createObjectURL(file), 'Original image preview');
+
+				var settings = readSettings();
+				appendStatus('Cropping ' + file.name + ' at aspect ' + settings.aspectRatio + ' and quality ' + settings.quality);
+
+				var result = await window.SelfieCrop.cropAndCompressImage(file, {
+					aspectRatio: settings.aspectRatio,
+					quality: settings.quality,
+					maxDimension: settings.maxDimension,
+					outputType: 'blob'
+				});
+
+				state.compressed = result;
+				var compressedUrl = URL.createObjectURL(result.blob);
+				setImagePreview(elements.croppedPreviewWrap, compressedUrl, 'Cropped/compressed preview');
+				elements.imageMeta.textContent = 'Compressed image: ' + result.width + ' x ' + result.height + ', ' + result.size + ' bytes, ' + result.mimeType;
+				appendStatus('Crop complete: ' + result.width + ' x ' + result.height + ', ' + result.size + ' bytes', 'success');
+				return result;
+			}
+
+			async function submitCurrentFile(forceUploadId) {
+				if (!state.compressed) {
+					await cropCurrentFile();
+				}
+
+				var settings = readSettings();
+				if (!settings.appsScriptUrl) {
+					throw new Error('Paste the deployed Apps Script /exec URL first');
+				}
+
+				var uploadId = forceUploadId || settings.uploadID || window.SelfieUpload.getUploadId();
+				elements.uploadId.value = uploadId;
+				setUploadInProgress(true);
+
+				try {
+					return await window.SelfieUpload.submitPhoto({
+						appsScriptUrl: settings.appsScriptUrl,
+						uploadID: uploadId,
+						name: settings.name,
+						phone: settings.phone,
+						imageBlob: state.compressed.blob,
+						contentType: state.compressed.mimeType,
+						fileName: (state.originalFile && state.originalFile.name ? state.originalFile.name : 'selfie') + '.jpg',
+						maxRetries: 3,
+						retryDelayMs: 800,
+						timeoutMs: 20000,
+						onStatus: function (message) {
+							appendStatus(message, 'upload');
+						}
+					});
+				} finally {
+					setUploadInProgress(false);
+				}
+			}
+
+			async function fetchDelta() {
+				var settings = readSettings();
+				if (!settings.appsScriptUrl) {
+					throw new Error('Paste the deployed Apps Script /exec URL first');
+				}
+
+				var response = await fetch(settings.appsScriptUrl + '?since=' + encodeURIComponent(settings.since), {
+					method: 'GET'
+				});
+				var payload = await response.json();
+				elements.deltaOutput.value = JSON.stringify(payload, null, 2);
+
+				if (!response.ok || payload.ok === false) {
+					throw new Error(payload.error || 'Failed to fetch delta');
+				}
+
+				appendStatus('Fetched delta for since=' + settings.since + ' with ' + ((payload.rows && payload.rows.length) || 0) + ' rows', 'success');
+			}
+
+			elements.fileInput.addEventListener('change', function () {
+				var file = getSelectedFile();
+				if (!file) {
+					return;
+				}
+
+				appendStatus('Loaded file ' + file.name + ' (' + file.type + ', ' + file.size + ' bytes)');
+				setImagePreview(elements.rawPreviewWrap, URL.createObjectURL(file), 'Original image preview');
+				state.compressed = null;
+				elements.croppedPreviewWrap.innerHTML = '<span class="note">Cropped/compressed preview</span>';
+			});
+
+			elements.cropButton.addEventListener('click', function () {
+				cropCurrentFile().catch(function (error) {
+					appendStatus(error.message, 'error');
+				});
+			});
+
+			elements.submitButton.addEventListener('click', function () {
+				submitCurrentFile().then(function (result) {
+					appendStatus('Server response: ' + JSON.stringify(result), 'success');
+				}).catch(function (error) {
+					appendStatus(error.message, 'error');
+				});
+			});
+
+			elements.submitTwiceButton.addEventListener('click', async function () {
+				var uploadId = elements.uploadId.value.trim() || window.SelfieUpload.getUploadId();
+				elements.uploadId.value = uploadId;
+				try {
+					var first = await submitCurrentFile(uploadId);
+					appendStatus('First submit: ' + JSON.stringify(first), 'success');
+					var second = await submitCurrentFile(uploadId);
+					appendStatus('Second submit: ' + JSON.stringify(second), 'success');
+				} catch (error) {
+					appendStatus(error.message, 'error');
+				}
+			});
+
+			elements.clearButton.addEventListener('click', function () {
+				elements.statusLog.innerHTML = '';
+			});
+
+			elements.deltaButton.addEventListener('click', function () {
+				fetchDelta().catch(function (error) {
+					appendStatus(error.message, 'error');
+				});
+			});
+
+			elements.saveUrlButton.addEventListener('click', function () {
+				localStorage.setItem('selfie.appsScriptUrl', elements.appsScriptUrl.value.trim());
+				appendStatus('Saved Apps Script URL locally');
+			});
+
+			elements.loadUrlButton.addEventListener('click', function () {
+				elements.appsScriptUrl.value = localStorage.getItem('selfie.appsScriptUrl') || '';
+				appendStatus('Loaded saved Apps Script URL');
+			});
+
+			elements.appsScriptUrl.value = localStorage.getItem('selfie.appsScriptUrl') || (window.SelfieTestConfig && window.SelfieTestConfig.appsScriptUrl) || '';
+			elements.name.value = (window.SelfieTestConfig && window.SelfieTestConfig.uploadName) || '';
+			elements.phone.value = (window.SelfieTestConfig && window.SelfieTestConfig.uploadPhone) || '';
+
+			window.addEventListener('beforeunload', function (event) {
+				if (!state.uploadInProgress) {
+					return;
+				}
+
+				event.preventDefault();
+				event.returnValue = '';
+			});
+
+			window.addEventListener('offline', function () {
+				appendStatus('Device appears offline; upload retries may take longer', 'error');
+			});
+
+			window.addEventListener('online', function () {
+				appendStatus('Device is back online', 'success');
+			});
+
+			state.kiosk = window.SelfieKiosk.createKioskDisplay({
+				endpointUrl: '',
+				pollIntervalMs: 5000,
+				storageKey: 'selfie.kiosk.cursor.harness',
+				maxImageLoadAttempts: 3,
+				since: 0,
+				onStatus: function (message) {
+					appendStatus(message, 'kiosk');
+				},
+				onRowConsumed: function (row) {
+					appendStatus('Consumed kiosk row ' + row.rowNumber + ' (' + row.uploadID + ')', 'kiosk');
+				}
+			});
+
+			appendStatus('Harness ready. Load a photo and paste the Apps Script URL to begin.');
+		})();
+	</script>
+</body>
+</html>
