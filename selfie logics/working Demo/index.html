@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Capture Kiosk</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #faf8f5;
+            color: #222;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+        }
+
+        /* flex center utility */
+        .kiosk-viewport,
+        .step-wrapper,
+        .cut-cards,
+        .cut-card,
+        .preview-slot,
+        .camera-stage,
+        .camera-frame,
+        .countdown-overlay,
+        .edit-center-stage,
+        .doodle-icon-wrap,
+        .color-dot,
+        .size-dot,
+        .frame-card,
+        .sticker-item,
+        .placed-sticker .delete-btn,
+        .placed-sticker .rotate-btn,
+        .placed-sticker .resize-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* full-size fill */
+        .frame-overlay-layer,
+        .doodle-canvas-layer,
+        .stickers-container-layer,
+        .camera-frame video,
+        .camera-frame canvas,
+        .preview-slot img,
+        .photostrip-photo-cell {
+            width: 100%;
+            height: 100%;
+        }
+
+        .preview-slot img,
+        .camera-frame video,
+        .camera-frame canvas,
+        .photostrip-photo-cell {
+            object-fit: cover;
+            display: block;
+        }
+
+        /* hover/state transitions */
+        .cut-card,
+        .btn-green-next,
+        .preview-slot,
+        .btn-retake-text,
+        .doodle-tool,
+        .color-dot,
+        .size-dot,
+        .panel-tab,
+        .frame-card,
+        .sticker-item {
+            transition: all 0.2s ease;
+        }
+
+        .kiosk-viewport {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1280px;
+            max-height: 720px;
+            margin: 0 auto;
+            position: relative;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .decor-top-left,
+        .decor-bottom-left,
+        .decor-bottom-right,
+        .decor-right-flower {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .decor-top-left {
+            top: 0;
+            left: 0;
+            width: 140px;
+            height: 140px;
+            z-index: 20;
+        }
+
+        .decor-bottom-left {
+            bottom: 0;
+            left: 0;
+            width: 130px;
+            height: 130px;
+            z-index: 10;
+        }
+
+        .decor-right-flower {
+            right: 0;
+            top: 40%;
+            transform: translateY(-50%);
+            width: 85px;
+            z-index: 20;
+        }
+
+        .decor-bottom-right {
+            bottom: 16px;
+            right: 16px;
+            width: 110px;
+            height: 110px;
+            z-index: 20;
+        }
+
+        .step-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .cut-container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .cut-title {
+            font-size: 30px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .cut-title .icon {
+            display: inline-block;
+            margin-left: 6px;
+        }
+
+        .cut-subtitle {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 36px;
+        }
+
+        .cut-cards {
+            gap: 32px;
+            margin-bottom: 40px;
+        }
+
+        .cut-card {
+            width: 200px;
+            height: 220px;
+            background: #ffffff;
+            border: 1px solid #ffe082;
+            border-radius: 6px;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .cut-card:hover {
+            border-color: #f2b705;
+            transform: translateY(-3px);
+        }
+
+        .cut-card.selected {
+            border: 2px solid #e5a800;
+            box-shadow: 0 6px 20px rgba(229, 168, 0, 0.2);
+        }
+
+        .cut-num {
+            font-size: 84px;
+            font-weight: 500;
+            color: #f2b705;
+            line-height: 1;
+            margin-bottom: 14px;
+        }
+
+        .cut-lbl {
+            font-size: 15px;
+            color: #777;
+            font-weight: 500;
+        }
+
+        .btn-green-next {
+            background: #00a859;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 14px 64px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-green-next:hover:not(:disabled) {
+            background: #008f4c;
+        }
+
+        .btn-green-next:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .capture-page {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 20px 30px 15px;
+        }
+
+        .capture-header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .capture-main-row {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            gap: 24px;
+            align-items: stretch;
+            margin-bottom: 10px;
+        }
+
+        .preview-sidebar {
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-top: 4px;
+            z-index: 2;
+        }
+
+        .preview-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .preview-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .preview-slot {
+            width: 100px;
+            height: 110px;
+            background: #e2e2e2;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+
+        .preview-slot.active {
+            border-color: #00a859;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 168, 89, 0.2);
+        }
+
+        .preview-slot.filled {
+            background: #ffffff;
+        }
+
+        .slot-badge {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #777;
+            z-index: 2;
+        }
+
+        .preview-slot.active .slot-badge {
+            color: #00a859;
+        }
+
+        .camera-stage {
+            flex: 1;
+            background: #d9d9d9;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .camera-frame {
+            width: 350px;
+            height: 450px;
+            background: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .countdown-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .countdown-num {
+            font-size: 100px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0.4);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .capture-bottom-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 10px;
+            position: relative;
+            z-index: 30;
+        }
+
+        .btn-retake-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            z-index: 35;
+        }
+
+        .btn-retake-text:hover {
+            background: #ffffff;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .success-container {
+            text-align: center;
+        }
+
+        .success-msg {
+            color: #00a859;
+            font-weight: bold;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+
+        .edit-page-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .doodle-sidebar {
+            width: 260px;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            border-right: 1px solid #eaeaea;
+            z-index: 5;
+            overflow: hidden;
+        }
+
+        .doodle-tool-header {
+            background: #00a859;
+            padding: 18px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .doodle-tool {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .doodle-tool:hover,
+        .doodle-tool.active {
+            color: #ffffff;
+        }
+
+        .doodle-tool.active .doodle-icon-wrap {
+            border-bottom: 2px solid #ffffff;
+            padding-bottom: 2px;
+        }
+
+        .doodle-icon-wrap {
+            width: 28px;
+            height: 28px;
+        }
+
+        .doodle-options-body {
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            flex: 1;
+            z-index: 2;
+        }
+
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        }
+
+        .color-dot:hover {
+            transform: scale(1.15);
+        }
+
+        .color-dot.active {
+            transform: scale(1.25);
+            box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #222222;
+        }
+
+        .size-palette {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 6px;
+        }
+
+        .size-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .size-dot span {
+            background: #111111;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .size-dot.active {
+            border-color: #00a859;
+        }
+
+        .edit-center-stage {
+            flex: 1;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px 20px 16px;
+            position: relative;
+            background: #faf8f5;
+        }
+
+        .edit-center-stage .cut-title {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .photostrip-editor-frame {
+            position: relative;
+            width: 350px;
+            height: 470px;
+            border-radius: 8px;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+            overflow: hidden;
+            background: #ffffff;
+            display: block;
+            padding: 0;
+        }
+
+        .frame-overlay-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            object-fit: fill;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .photostrip-inner-container {
+            position: absolute;
+            inset: 0;
+            padding: 24px 34px 58px;
+            z-index: 1;
+            display: grid;
+            gap: 8px;
+        }
+
+        .photostrip-inner-container.cut-1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        .photostrip-inner-container.cut-2 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .photostrip-inner-container.cut-4 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .photostrip-photo-cell {
+            border-radius: 2px;
+        }
+
+        .doodle-canvas-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .stickers-container-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .placed-sticker {
+            position: absolute;
+            pointer-events: auto;
+            cursor: move;
+            user-select: none;
+            display: inline-block;
+            padding: 4px;
+            transform-origin: center center;
+        }
+
+        .placed-sticker img,
+        .placed-sticker svg {
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .placed-sticker.selected {
+            outline: 2px dashed #ff6b35;
+            border-radius: 4px;
+        }
+
+        .placed-sticker .delete-btn,
+        .placed-sticker .rotate-btn,
+        .placed-sticker .resize-btn {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: bold;
+            display: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            z-index: 10;
+        }
+
+        .placed-sticker .delete-btn {
+            top: -10px;
+            right: -10px;
+            background: #ff4d4d;
+            cursor: pointer;
+        }
+
+        .placed-sticker .rotate-btn {
+            bottom: -10px;
+            right: -10px;
+            background: #00a859;
+            cursor: grab;
+        }
+
+        .placed-sticker .resize-btn {
+            bottom: -10px;
+            left: -10px;
+            background: #ff8c00;
+            cursor: nwse-resize;
+        }
+
+        .placed-sticker.selected .delete-btn,
+        .placed-sticker.selected .rotate-btn,
+        .placed-sticker.selected .resize-btn {
+            display: flex;
+        }
+
+        #btnSubmitEdit {
+            border-radius: 30px;
+            padding: 12px 64px;
+            font-size: 17px;
+            font-weight: 700;
+            box-shadow: 0 4px 16px rgba(0, 168, 89, 0.35);
+        }
+
+        .striped-bar-separator {
+            width: 14px;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, #ff5b93 0px, #ff5b93 12px, #ffc700 12px, #ffc700 24px, #00a859 24px, #00a859 36px, #ff8c00 36px, #ff8c00 48px, #00bfff 48px, #00bfff 60px);
+        }
+
+        .right-panel-sidebar {
+            width: 300px;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+        }
+
+        .panel-tab-headers {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            padding: 16px 20px 0;
+            gap: 36px;
+            justify-content: center;
+        }
+
+        .panel-tab {
+            font-size: 16px;
+            font-weight: 600;
+            color: #777;
+            padding-bottom: 10px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .panel-tab.active {
+            color: #ff6b35;
+        }
+
+        .panel-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #ff6b35;
+            border-radius: 3px;
+        }
+
+        .tab-content-panel {
+            display: none;
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .tab-content-panel.active {
+            display: block;
+        }
+
+        .frames-grid,
+        .stickers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .stickers-grid {
+            align-items: center;
+        }
+
+        .frame-card {
+            aspect-ratio: 350 / 470;
+            height: auto;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+            background: #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            padding: 0;
+        }
+
+        .frame-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            display: block;
+        }
+
+        .frame-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .frame-card.active {
+            border: 1.5px solid #ff6b35;
+            box-shadow: 0 4px 14px rgba(255, 107, 53, 0.3);
+            transform: scale(1.02);
+        }
+
+        .sticker-item {
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #ffffff;
+            border: 1px solid #f0f0f0;
+            min-height: 80px;
+        }
+
+        .sticker-item:hover {
+            background: #fdf5f0;
+            transform: scale(1.08);
+            border-color: #ffe0d0;
+        }
+
+        .sticker-item svg,
+        .sticker-item img {
+            max-width: 65px;
+            max-height: 65px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="kiosk-viewport">
+
+        <!-- STEP 0: Cut Selection (Page 1 - Matching Image 1) -->
+        <div id="step-cut" class="step-wrapper cut-container">
+            <svg class="decor-top-left" viewBox="0 0 100 100" fill="none">
+                <path d="M0 0 H100 A100 100 0 0 1 0 100 Z" fill="#00A859" />
+                <path d="M0 0 H75 A75 75 0 0 1 0 75 Z" fill="#FFC700" />
+                <path d="M0 0 H50 A50 50 0 0 1 0 50 Z" fill="#FF5B93" />
+            </svg>
+
+            <svg class="decor-bottom-right" viewBox="0 0 100 100" fill="none">
+                <g transform="rotate(-25 50 50)">
+                    <path d="M25 40 Q25 80 50 80 Q75 80 75 40 Z" fill="#FF5B93" />
+                    <ellipse cx="50" cy="40" rx="25" ry="8" fill="#00A859" />
+                    <path d="M75 48 C86 48 86 68 75 68" stroke="#FF5B93" stroke-width="6" fill="none"
+                        stroke-linecap="round" />
+                </g>
+            </svg>
+
+            <h1 class="cut-title">PLEASE SELECT THE TYPE OF CUT <span class="icon">🍃</span></h1>
+            <p class="cut-subtitle">We'll keep clicking.. you can choose your favourite photos later.</p>
+
+            <div class="cut-cards">
+                <div class="cut-card" data-cuts="1">
+                    <div class="cut-num">1</div>
+                    <div class="cut-lbl">Single Cut</div>
+                </div>
+                <div class="cut-card" data-cuts="2">
+                    <div class="cut-num">2</div>
+                    <div class="cut-lbl">Two Cut</div>
+                </div>
+                <div class="cut-card" data-cuts="4">
+                    <div class="cut-num">4</div>
+                    <div class="cut-lbl">four Cut</div>
+                </div>
+            </div>
+
+            <button class="btn-green-next" id="btnCutNext" disabled>Next</button>
+        </div>
+
+        <!-- STEP 1: Keep Posing / Capture Screen (Page 2 - Matching Image 2) -->
+        <div id="step-capture" class="step-wrapper hidden">
+            <svg class="decor-bottom-left" viewBox="0 0 100 100" fill="none">
+                <path d="M0 100 H100 A100 100 0 0 0 0 0 Z" fill="#00A859" />
+                <path d="M0 100 H75 A75 75 0 0 0 0 25 Z" fill="#FFC700" />
+                <path d="M0 100 H50 A50 50 0 0 0 0 50 Z" fill="#FF5B93" />
+            </svg>
+
+            <img src="https://static.virtubox.io/catalog/file/20260821-074418-y2km-flower.png"
+                class="decor-right-flower" alt="Flower Decor">
+
+            <div class="capture-page">
+                <div class="capture-header">
+                    <h1 class="cut-title">KEEP POSING <span class="icon">💕</span></h1>
+                    <p class="cut-subtitle">We'll keep clicking.. you can choose your favourite photos later.</p>
+                </div>
+
+                <div class="capture-main-row">
+                    <div class="preview-sidebar">
+                        <div class="preview-title">Preview</div>
+                        <div class="preview-slots" id="previewSlots"></div>
+                    </div>
+
+                    <div class="camera-stage">
+                        <div class="camera-frame">
+                            <video id="videoFeed" autoplay playsinline></video>
+                            <canvas id="captureCanvas" class="hidden"></canvas>
+
+                            <div class="countdown-overlay hidden" id="countdownOverlay">
+                                <div class="countdown-num" id="countdownNum">3</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="capture-bottom-bar">
+                    <button class="btn-retake-text" id="btnRetakeShots">
+                        <span>↺</span> Retake
+                    </button>
+                    <button class="btn-green-next" id="btnCaptureNext">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: Keep Editing / Customization Screen (Page 3 - Matching Screenshots) -->
+        <div id="step-edit" class="step-wrapper hidden">
+            <div class="edit-page-container">
+                <!-- Left Sidebar - Doodling Tools -->
+                <div class="doodle-sidebar">
+                    <div class="doodle-tool-header">
+                        <div class="doodle-tool" data-tool="eraser">
+                            <div class="doodle-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L22 7C23 8 23 10 22 11L13 20H20V20Z" />
+                                    <path d="M18 12L11 5" />
+                                </svg>
+                            </div>
+                            <span>Eraser</span>
+                        </div>
+                        <div class="doodle-tool active" data-tool="pen">
+                            <div class="doodle-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                    <path d="M2 2l5 5" />
+                                </svg>
+                            </div>
+                            <span>Pen</span>
+                        </div>
+                        <div class="doodle-tool" data-tool="brush">
+                            <div class="doodle-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M18 11.5L16.5 10 13 13.5l1.5 1.5L18 11.5z" />
+                                    <path d="M13.5 14.5L3 21l3-10.5 7.5 4z" />
+                                    <path d="M20.5 4a3.53 3.53 0 010 5l-2.5 2.5-5-5 2.5-2.5a3.53 3.53 0 015 0z" />
+                                </svg>
+                            </div>
+                            <span>Brush</span>
+                        </div>
+                        <div class="doodle-tool" data-tool="highlighter">
+                            <div class="doodle-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M9 11l-6 6v4h4l6-6" />
+                                    <path d="M22 6L18 2 10 10l4 4 8-8z" />
+                                </svg>
+                            </div>
+                            <span>Highlighter</span>
+                        </div>
+                    </div>
+
+                    <div class="doodle-options-body">
+                        <!-- Color Swatches -->
+                        <div class="color-palette">
+                            <div class="color-dot active" data-color="#000000" style="background:#000000"></div>
+                            <div class="color-dot" data-color="#FF4D4D" style="background:#FF4D4D"></div>
+                            <div class="color-dot" data-color="#FFC700" style="background:#FFC700"></div>
+                            <div class="color-dot" data-color="#00A859" style="background:#00A859"></div>
+                            <div class="color-dot" data-color="#00BFFF" style="background:#00BFFF"></div>
+                            <div class="color-dot" data-color="#BF00FF" style="background:#BF00FF"></div>
+                            <div class="color-dot" data-color="#8B4513" style="background:#8B4513"></div>
+                        </div>
+
+                        <!-- Stroke Sizes (8 dots) -->
+                        <div class="size-palette">
+                            <div class="size-dot" data-size="3"><span style="width:3px;height:3px;"></span></div>
+                            <div class="size-dot active" data-size="6"><span style="width:6px;height:6px;"></span></div>
+                            <div class="size-dot" data-size="10"><span style="width:10px;height:10px;"></span></div>
+                            <div class="size-dot" data-size="14"><span style="width:14px;height:14px;"></span></div>
+                            <div class="size-dot" data-size="18"><span style="width:18px;height:18px;"></span></div>
+                            <div class="size-dot" data-size="22"><span style="width:22px;height:22px;"></span></div>
+                            <div class="size-dot" data-size="26"><span style="width:26px;height:26px;"></span></div>
+                            <div class="size-dot" data-size="30"><span style="width:30px;height:30px;"></span></div>
+                        </div>
+                    </div>
+
+                    <svg class="decor-bottom-left" viewBox="0 0 100 100" fill="none">
+                        <path d="M0 100 H100 A100 100 0 0 0 0 0 Z" fill="#00A859" />
+                        <path d="M0 100 H75 A75 75 0 0 0 0 25 Z" fill="#FFC700" />
+                        <path d="M0 100 H50 A50 50 0 0 0 0 50 Z" fill="#FF5B93" />
+                    </svg>
+                </div>
+
+                <!-- Center Edit Stage -->
+                <div class="edit-center-stage">
+                    <h1 class="cut-title">KEEP EDITING <span class="icon">💕</span></h1>
+
+                    <div class="photostrip-editor-frame" id="photostripEditorFrame">
+                        <!-- Photos Layer (Bottom) -->
+                        <div class="photostrip-inner-container cut-4" id="photostripInner"></div>
+                        <!-- Frame PNG Overlay Layer (Middle) -->
+                        <img id="frameOverlayImg" class="frame-overlay-layer" src="./frame/Subtract.png"
+                            alt="Frame Overlay">
+                        <!-- Doodling Layer -->
+                        <canvas id="doodleCanvas" class="doodle-canvas-layer"></canvas>
+                        <!-- Stickers Layer (Top) -->
+                        <div id="stickersLayer" class="stickers-container-layer"></div>
+                    </div>
+
+                    <button class="btn-green-next" id="btnSubmitEdit">Submit</button>
+                </div>
+
+                <!-- Candy Strip Separator -->
+                <div class="striped-bar-separator"></div>
+
+                <!-- Right Panel Sidebar (Frames & Stickers Tabs) -->
+                <div class="right-panel-sidebar">
+                    <div class="panel-tab-headers">
+                        <div class="panel-tab active" id="tabHeaderFrames" data-tab="frames">Frames</div>
+                        <div class="panel-tab" id="tabHeaderStickers" data-tab="stickers">Stickers</div>
+                    </div>
+
+                    <!-- Frames Panel -->
+                    <div class="tab-content-panel active" id="panelFrames">
+                        <div class="frames-grid"></div>
+                    </div>
+
+                    <!-- Stickers Panel -->
+                    <div class="tab-content-panel" id="panelStickers">
+                        <div class="stickers-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: Success -->
+        <div id="step-success" class="step-wrapper success-container hidden">
+            <div class="success-msg">Photo Uploaded ✓</div>
+            <button class="btn-green-next" id="btnNext" style="padding: 14px 48px;">Take Another</button>
+        </div>
+    </div>
+    <!-- 1. API Config (Credentials & Services) -->
+    <script src="API_config.js"></script>
+    <!-- 2. Main Logic Script -->
+    <script src="config.js"></script>
+</body>
+
+</html>
